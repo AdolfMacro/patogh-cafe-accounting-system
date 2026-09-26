@@ -150,33 +150,14 @@ The purpose of IRC integration is to provide **simple remote visibility and noti
 
 # 📸 Screenshots
 
-### Dashboard
+![PATOGH Cafe Accounting System](https://raw.githubusercontent.com/AdolfMacro/patogh-cafe-accounting-system/main/paSC1.png)
 
-<!-- Add screenshot here -->
+![PATOGH Screenshot 2](https://raw.githubusercontent.com/AdolfMacro/patogh-cafe-accounting-system/main/paSC2.png)
 
-### Sales
+![PATOGH Screenshot 3](https://raw.githubusercontent.com/AdolfMacro/patogh-cafe-accounting-system/main/paSC3.png)
 
-<!-- Add screenshot here -->
+![PATOGH Screenshot 4](https://raw.githubusercontent.com/AdolfMacro/patogh-cafe-accounting-system/main/paSC4.png)
 
-### Purchases
-
-<!-- Add screenshot here -->
-
-### Inventory
-
-<!-- Add screenshot here -->
-
-### Products
-
-<!-- Add screenshot here -->
-
-### Reports
-
-<!-- Add screenshot here -->
-
-### IRC Remote Monitoring
-
-<!-- Add IRC screenshot here -->
 
 ---
 

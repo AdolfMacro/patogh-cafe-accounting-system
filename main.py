@@ -4125,16 +4125,306 @@ class HelpPage(QWidget):
 
         <hr>
 
+        <h3>۹. توسعه‌دهنده</h3>
         <p style="text-align: center; color: #6F4E37; font-weight: bold;">
         PATOGH v1.0.0 — برای کافه‌های ساده و شیک
         <br>
         در صورت سوال، راهنما را دوباره بخوانید یا از بخش‌های مختلف برنامه استفاده کنید.
+        <br><br>
+        <b>توسعه‌دهنده:</b> مانی کامران (maniKamran)<br>
+        <b>ایمیل:</b> m4nikamran@gmail.com<br>
+        <b>گیتهاب:</b> <a href="https://github.com/adolfmacro" style="color: #6F4E37;">https://github.com/adolfmacro</a><br>
+        <b>تمام حقوق محفوظ است.</b>
         </p>
         """)
 
         root.addWidget(
             help_text
         )
+
+        # IRC Settings Button
+        irc_btn = QPushButton("⚙ تنظیمات IRC")
+        irc_btn.setObjectName("Primary")
+        irc_btn.setMinimumHeight(40)
+        irc_btn.clicked.connect(self.open_irc_settings)
+        root.addWidget(irc_btn)
+
+    def open_irc_settings(self):
+        """Open IRC Settings page."""
+        window = self.window()
+        if hasattr(window, 'show_page'):
+            window.show_page("تنظیمات IRC")
+
+
+# ============================================================
+# IRC SETTINGS PAGE
+# ============================================================
+
+class IRCSettingsPage(QWidget):
+
+    def __init__(self, db, irc_manager=None, parent_window=None):
+
+        super().__init__()
+
+        self.db = db
+        self.irc = irc_manager
+        self.parent_window = parent_window
+
+        root = QVBoxLayout(self)
+
+        title = QLabel(
+            "تنظیمات IRC"
+        )
+
+        title.setObjectName(
+            "PageTitle"
+        )
+
+        root.addWidget(title)
+
+        # Load current settings
+        self.settings = load_irc_settings(self.db)
+
+        form = QFormLayout()
+
+        self.enabled = QCheckBox("فعال‌سازی IRC")
+        self.enabled.setChecked(self.settings.get("enabled", True))
+        form.addRow(self.enabled)
+
+        self.host = QLineEdit()
+        self.host.setText(self.settings.get("host", "irc.libera.chat"))
+        form.addRow("سرور:", self.host)
+
+        self.port = QSpinBox()
+        self.port.setRange(1, 65535)
+        self.port.setValue(self.settings.get("port", 6697))
+        form.addRow("پورت:", self.port)
+
+        self.nickname = QLineEdit()
+        self.nickname.setText(self.settings.get("nickname", "PATOGH"))
+        form.addRow("نام کاربری (Nickname):", self.nickname)
+
+        self.username = QLineEdit()
+        self.username.setText(self.settings.get("username", "patogh"))
+        form.addRow("نام کاربری (Username):", self.username)
+
+        self.realname = QLineEdit()
+        self.realname.setText(self.settings.get("realname", "PATOGH Cafe"))
+        form.addRow("نام واقعی:", self.realname)
+
+        self.channel = QLineEdit()
+        self.channel.setText(self.settings.get("channel", "#myCh"))
+        form.addRow("کانال:", self.channel)
+
+        self.password = QLineEdit()
+        self.password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password.setText(self.settings.get("password", ""))
+        form.addRow("رمز عبور (اختیاری):", self.password)
+
+        self.ssl = QCheckBox("استفاده از SSL/TLS")
+        self.ssl.setChecked(self.settings.get("ssl", True))
+        form.addRow(self.ssl)
+
+        self.auto_connect = QCheckBox("اتصال خودکار در آغاز برنامه")
+        self.auto_connect.setChecked(self.settings.get("auto_connect", True))
+        form.addRow(self.auto_connect)
+
+        root.addLayout(form)
+
+        # Buttons
+        btn_layout = QHBoxLayout()
+
+        save_btn = QPushButton("ذخیره و اتصال")
+        save_btn.setObjectName("Primary")
+        save_btn.clicked.connect(self.save_and_connect)
+
+        test_btn = QPushButton("تست اتصال")
+        test_btn.clicked.connect(self.test_connection)
+
+        btn_layout.addWidget(save_btn)
+        btn_layout.addWidget(test_btn)
+        btn_layout.addStretch()
+
+        root.addLayout(btn_layout)
+
+        # Status label
+        self.status_label = QLabel("")
+        self.status_label.setObjectName("StatusWarning")
+        root.addWidget(self.status_label)
+
+        root.addStretch()
+
+    def save_and_connect(self):
+        """Save settings and reconnect IRC."""
+        new_settings = {
+            "enabled": self.enabled.isChecked(),
+            "host": self.host.text().strip(),
+            "port": self.port.value(),
+            "nickname": self.nickname.text().strip(),
+            "username": self.username.text().strip(),
+            "realname": self.realname.text().strip(),
+            "channel": self.channel.text().strip(),
+            "password": self.password.text(),
+            "ssl": self.ssl.isChecked(),
+            "auto_connect": self.auto_connect.isChecked(),
+        }
+
+        # Validate
+        if not new_settings["host"]:
+            QMessageBox.warning(self, "خطا", "آدرس سرور را وارد کنید.")
+            return
+        if not new_settings["nickname"]:
+            QMessageBox.warning(self, "خطا", "نام کاربری (Nickname) را وارد کنید.")
+            return
+        if not new_settings["channel"]:
+            QMessageBox.warning(self, "خطا", "نام کانال را وارد کنید.")
+            return
+
+        # Save to database
+        save_irc_settings(self.db, new_settings)
+        self.settings = new_settings
+
+        # Update parent window settings
+        if self.parent_window:
+            self.parent_window.irc_settings = new_settings
+
+        # Reconnect IRC
+        if self.irc:
+            self.irc.disconnect()
+
+        self.status_label.setText("در حال اتصال...")
+        self.status_label.setObjectName("StatusWarning")
+
+        # Use QTimer to allow UI to update
+        QTimer.singleShot(100, lambda: self._do_connect(new_settings))
+
+    def _do_connect(self, settings):
+        """Connect in background."""
+        from irc import IRCManager
+        from PyQt6.QtWidgets import QProgressDialog, QApplication
+        from PyQt6.QtCore import Qt, QTimer, QEventLoop
+
+        progress = QProgressDialog("در حال اتصال به سرور IRC...", "انصراف", 0, 0, self)
+        progress.setWindowTitle("اتصال IRC")
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.show()
+        QApplication.processEvents()
+
+        mgr = IRCManager(settings)
+        connected = [False]
+        error_msg = [None]
+        loop = QEventLoop()
+
+        def on_connected():
+            connected[0] = True
+            loop.quit()
+
+        def on_error(err):
+            error_msg[0] = str(err)
+            loop.quit()
+
+        mgr.connect(on_connected=on_connected, on_error=on_error)
+
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        timer.start(30000)
+
+        loop.exec()
+
+        progress.close()
+
+        if connected[0]:
+            self.irc = mgr
+            if self.parent_window:
+                self.parent_window.irc = mgr
+            self.status_label.setText("✓ متصل شد")
+            self.status_label.setObjectName("StatusOK")
+            QMessageBox.information(self, "موفقیت", "تنظیمات ذخیره و اتصال برقرار شد.")
+        else:
+            if error_msg[0]:
+                self.status_label.setText(f"✗ خطا: {user_friendly_error(Exception(error_msg[0]))}")
+                self.status_label.setObjectName("StatusError")
+            else:
+                self.status_label.setText("✗ خطای ناشناخته")
+                self.status_label.setObjectName("StatusError")
+
+    def test_connection(self):
+        """Test IRC connection without saving."""
+        test_settings = {
+            "enabled": True,
+            "host": self.host.text().strip(),
+            "port": self.port.value(),
+            "nickname": self.nickname.text().strip(),
+            "username": self.username.text().strip(),
+            "realname": self.realname.text().strip(),
+            "channel": self.channel.text().strip(),
+            "password": self.password.text(),
+            "ssl": self.ssl.isChecked(),
+            "auto_connect": False,
+        }
+
+        if not test_settings["host"] or not test_settings["nickname"] or not test_settings["channel"]:
+            QMessageBox.warning(self, "خطا", "سرور، نام کاربری و کانال را وارد کنید.")
+            return
+
+        self.status_label.setText("در حال تست اتصال...")
+        self.status_label.setObjectName("StatusWarning")
+
+        QTimer.singleShot(100, lambda: self._do_test(test_settings))
+
+    def _do_test(self, settings):
+        """Test connection."""
+        from irc import IRCManager
+        from PyQt6.QtWidgets import QProgressDialog, QApplication
+        from PyQt6.QtCore import Qt, QTimer, QEventLoop
+
+        progress = QProgressDialog("در حال تست اتصال...", "انصراف", 0, 0, self)
+        progress.setWindowTitle("تست اتصال IRC")
+        progress.setWindowModality(Qt.WindowModality.ApplicationModal)
+        progress.setCancelButton(None)
+        progress.setMinimumDuration(0)
+        progress.show()
+        QApplication.processEvents()
+
+        mgr = IRCManager(settings)
+        connected = [False]
+        error_msg = [None]
+        loop = QEventLoop()
+
+        def on_connected():
+            connected[0] = True
+            loop.quit()
+
+        def on_error(err):
+            error_msg[0] = str(err)
+            loop.quit()
+
+        mgr.connect(on_connected=on_connected, on_error=on_error)
+
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.timeout.connect(loop.quit)
+        timer.start(15000)
+
+        loop.exec()
+
+        progress.close()
+        mgr.disconnect()
+
+        if connected[0]:
+            self.status_label.setText("✓ تست اتصال موفق")
+            self.status_label.setObjectName("StatusOK")
+            QMessageBox.information(self, "موفقیت", "اتصال به سرور IRC با موفقیت برقرار شد.")
+        else:
+            if error_msg[0]:
+                self.status_label.setText(f"✗ خطا: {user_friendly_error(Exception(error_msg[0]))}")
+                self.status_label.setObjectName("StatusError")
+            else:
+                self.status_label.setText("✗ خطای ناشناخته")
+                self.status_label.setObjectName("StatusError")
 
 
 # ============================================================
@@ -4257,6 +4547,11 @@ class MainWindow(QMainWindow):
         )
 
         self.add_page(
+            "تنظیمات IRC",
+            IRCSettingsPage(self.db, self.irc, self)
+        )
+
+        self.add_page(
             "راهنما",
             HelpPage()
         )
@@ -4266,7 +4561,7 @@ class MainWindow(QMainWindow):
         )
 
         # Wire IRC to pages
-        for name in ("فروش", "خرید", "هزینه‌ها", "صندوق"):
+        for name in ("فروش", "خرید", "هزینه‌ها", "صندوق", "تنظیمات IRC"):
             page = self.pages.get(name)
             if page:
                 page.irc = self.irc
@@ -4339,6 +4634,7 @@ class MainWindow(QMainWindow):
             "جستجوی دیتابیس",
             "تراکنش‌ها",
             "پشتیبان‌گیری",
+            "تنظیمات IRC",
             "راهنما",
         ]
 
@@ -4363,6 +4659,16 @@ class MainWindow(QMainWindow):
             )
 
         layout.addStretch()
+
+        # DEV label
+        dev_label = QLabel(
+            "DEV: maniKamran"
+        )
+        dev_label.setStyleSheet(
+            "color:#888;padding:10px;font-size:11px;"
+        )
+        dev_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(dev_label)
 
         version = QLabel(
             f"v{APP_VERSION}"
@@ -4894,7 +5200,7 @@ def main():
         irc_manager
     )
 
-    window.show()
+    window.showMaximized()
 
     sys.exit(
         app.exec()
